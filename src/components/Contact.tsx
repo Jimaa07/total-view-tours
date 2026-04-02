@@ -1,7 +1,53 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
-import { Mail, Phone, MapPin } from "lucide-react";
+import { Mail, Phone } from "lucide-react";
+import emailjs from "@emailjs/browser";
+import { toast } from "sonner";
 
 const Contact = () => {
+  const [sending, setSending] = useState(false);
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    project: "",
+    message: "",
+  });
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.name || !form.email || !form.message) {
+      toast.error("Por favor completa los campos obligatorios.");
+      return;
+    }
+    setSending(true);
+    try {
+      await emailjs.send(
+        "service_gqb5ekj",
+        "template_default",
+        {
+          from_name: form.name,
+          from_email: form.email,
+          phone: form.phone,
+          project_type: form.project,
+          message: form.message,
+        },
+        { publicKey: "8_aMSh-2p3q7xA23j" }
+      );
+      toast.success("¡Solicitud enviada con éxito!");
+      setForm({ name: "", email: "", phone: "", project: "", message: "" });
+    } catch (error) {
+      console.error(error);
+      toast.error("Error al enviar. Intenta de nuevo.");
+    } finally {
+      setSending(false);
+    }
+  };
+
   return (
     <section id="contacto" className="py-24 md:py-32">
       <div className="container mx-auto px-6">
@@ -29,11 +75,14 @@ const Contact = () => {
             transition={{ duration: 0.6, delay: 0.2 }}
             className="glass rounded-2xl p-8 md:p-12"
           >
-            <form className="grid md:grid-cols-2 gap-6" onSubmit={(e) => e.preventDefault()}>
+            <form className="grid md:grid-cols-2 gap-6" onSubmit={handleSubmit}>
               <div className="flex flex-col gap-2">
                 <label className="text-sm text-muted-foreground font-medium">Nombre</label>
                 <input
                   type="text"
+                  name="name"
+                  value={form.name}
+                  onChange={handleChange}
                   placeholder="Tu nombre"
                   className="bg-secondary border border-border rounded-lg px-4 py-3 text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50 transition-colors"
                 />
@@ -42,6 +91,9 @@ const Contact = () => {
                 <label className="text-sm text-muted-foreground font-medium">Email</label>
                 <input
                   type="email"
+                  name="email"
+                  value={form.email}
+                  onChange={handleChange}
                   placeholder="tu@email.com"
                   className="bg-secondary border border-border rounded-lg px-4 py-3 text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50 transition-colors"
                 />
@@ -50,13 +102,21 @@ const Contact = () => {
                 <label className="text-sm text-muted-foreground font-medium">Teléfono</label>
                 <input
                   type="tel"
-                  placeholder="+52 (555) 123-4567"
+                  name="phone"
+                  value={form.phone}
+                  onChange={handleChange}
+                  placeholder="51082954"
                   className="bg-secondary border border-border rounded-lg px-4 py-3 text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50 transition-colors"
                 />
               </div>
               <div className="flex flex-col gap-2">
                 <label className="text-sm text-muted-foreground font-medium">Tipo de Proyecto</label>
-                <select className="bg-secondary border border-border rounded-lg px-4 py-3 text-foreground focus:outline-none focus:border-primary/50 transition-colors">
+                <select
+                  name="project"
+                  value={form.project}
+                  onChange={handleChange}
+                  className="bg-secondary border border-border rounded-lg px-4 py-3 text-foreground focus:outline-none focus:border-primary/50 transition-colors"
+                >
                   <option value="">Seleccionar...</option>
                   <option value="realestate">Bienes Raíces</option>
                   <option value="hospitality">Hotelería / Turismo</option>
@@ -68,6 +128,9 @@ const Contact = () => {
               <div className="flex flex-col gap-2 md:col-span-2">
                 <label className="text-sm text-muted-foreground font-medium">Mensaje</label>
                 <textarea
+                  name="message"
+                  value={form.message}
+                  onChange={handleChange}
                   rows={4}
                   placeholder="Cuéntanos sobre tu proyecto..."
                   className="bg-secondary border border-border rounded-lg px-4 py-3 text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50 transition-colors resize-none"
@@ -76,19 +139,20 @@ const Contact = () => {
               <div className="md:col-span-2">
                 <button
                   type="submit"
-                  className="w-full bg-primary text-primary-foreground py-4 rounded-lg font-semibold text-lg hover:opacity-90 transition-opacity glow-sm"
+                  disabled={sending}
+                  className="w-full bg-primary text-primary-foreground py-4 rounded-lg font-semibold text-lg hover:opacity-90 transition-opacity glow-sm disabled:opacity-50"
                 >
-                  Enviar Solicitud
+                  {sending ? "Enviando..." : "Enviar Solicitud"}
                 </button>
               </div>
             </form>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-8 mt-10 pt-8 border-t border-border/50">
-              <a href="mailto:info@totalviewexperience.com" className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors text-sm">
-                <Mail size={16} className="text-primary" /> info@totalviewexperience.com
+              <a href="mailto:totalviewexperiencie@gmail.com" className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors text-sm">
+                <Mail size={16} className="text-primary" /> totalviewexperiencie@gmail.com
               </a>
-              <a href="tel:+525551234567" className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors text-sm">
-                <Phone size={16} className="text-primary" /> +52 (555) 123-4567
+              <a href="tel:51082954" className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors text-sm">
+                <Phone size={16} className="text-primary" /> 51082954
               </a>
             </div>
           </motion.div>
