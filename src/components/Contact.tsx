@@ -1,21 +1,73 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Mail, Phone } from "lucide-react";
+import { Mail, Phone, Upload, X } from "lucide-react";
 import emailjs from "@emailjs/browser";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+
+const MAX_IMAGES = 6;
+const MAX_SIZE = 8 * 1024 * 1024; // 8MB
 
 const Contact = () => {
   const [sending, setSending] = useState(false);
+  const [images, setImages] = useState<File[]>([]);
   const [form, setForm] = useState({
     name: "",
     email: "",
     phone: "",
     project: "",
+    location: "",
     message: "",
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  const handleImages = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    const valid: File[] = [];
+    for (const f of files) {
+      if (!f.type.startsWith("image/")) {
+        toast.error(`${f.name}: solo se permiten imágenes.`);
+        continue;
+      }
+      if (f.size > MAX_SIZE) {
+        toast.error(`${f.name}: supera 8MB.`);
+        continue;
+      }
+      valid.push(f);
+    }
+    const combined = [...images, ...valid].slice(0, MAX_IMAGES);
+    if (images.length + valid.length > MAX_IMAGES) {
+      toast.error(`Máximo ${MAX_IMAGES} imágenes.`);
+    }
+    setImages(combined);
+    e.target.value = "";
+  };
+
+  const removeImage = (idx: number) => {
+    setImages(images.filter((_, i) => i !== idx));
+  };
+
+  const uploadImages = async (): Promise<string[]> => {
+    const urls: string[] = [];
+    const folder = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    for (const file of images) {
+      const ext = file.name.split(".").pop() ?? "jpg";
+      const path = `${folder}/${crypto.randomUUID()}.${ext}`;
+      const { error } = await supabase.storage.from("property-images").upload(path, file, {
+        contentType: file.type,
+        upsert: false,
+      });
+      if (error) throw error;
+      const { data, error: signErr } = await supabase.storage
+        .from("property-images")
+        .createSignedUrl(path, 60 * 60 * 24 * 365);
+      if (signErr) throw signErr;
+      urls.push(data.signedUrl);
+    }
+    return urls;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -26,20 +78,28 @@ const Contact = () => {
     }
     setSending(true);
     try {
+      let imageUrls: string[] = [];
+      if (images.length > 0) {
+        imageUrls = await uploadImages();
+      }
       await emailjs.send(
         "service_gqb5ekj",
-        "template_default",
+        "template_xksifp6",
         {
           from_name: form.name,
           from_email: form.email,
           phone: form.phone,
           project_type: form.project,
+          location: form.location,
           message: form.message,
+          image_links: imageUrls.length > 0 ? imageUrls.join("\n") : "Sin imágenes adjuntas",
+          image_count: imageUrls.length,
         },
         { publicKey: "8_aMSh-2p3q7xA23j" }
       );
       toast.success("¡Solicitud enviada con éxito!");
-      setForm({ name: "", email: "", phone: "", project: "", message: "" });
+      setForm({ name: "", email: "", phone: "", project: "", location: "", message: "" });
+      setImages([]);
     } catch (error) {
       console.error(error);
       toast.error("Error al enviar. Intenta de nuevo.");
@@ -126,6 +186,19 @@ const Contact = () => {
                 </select>
               </div>
               <div className="flex flex-col gap-2 md:col-span-2">
+                <label className="text-sm text-muted-foreground font-medium">
+                  Link de ubicación <span className="text-muted-foreground/60">(Google Maps, opcional)</span>
+                </label>
+                <input
+                  type="url"
+                  name="location"
+                  value={form.location}
+                  onChange={handleChange}
+                  placeholder="https://maps.google.com/..."
+                  className="bg-secondary border border-border rounded-lg px-4 py-3 text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50 transition-colors"
+                />
+              </div>
+              <div className="flex flex-col gap-2 md:col-span-2">
                 <label className="text-sm text-muted-foreground font-medium">Mensaje</label>
                 <textarea
                   name="message"
@@ -135,6 +208,45 @@ const Contact = () => {
                   placeholder="Cuéntanos sobre tu proyecto..."
                   className="bg-secondary border border-border rounded-lg px-4 py-3 text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50 transition-colors resize-none"
                 />
+              </div>
+              <div className="flex flex-col gap-2 md:col-span-2">
+                <label className="text-sm text-muted-foreground font-medium">
+                  Imágenes de la propiedad <span className="text-muted-foreground/60">(opcional, hasta {MAX_IMAGES})</span>
+                </label>
+                <label
+                  htmlFor="property-images"
+                  className="flex flex-col items-center justify-center gap-2 bg-secondary border border-dashed border-border hover:border-primary/50 rounded-lg px-4 py-6 cursor-pointer transition-colors"
+                >
+                  <Upload size={20} className="text-primary" />
+                  <span className="text-sm text-muted-foreground">
+                    Haz clic para subir imágenes (máx. 8MB cada una)
+                  </span>
+                  <input
+                    id="property-images"
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleImages}
+                    className="hidden"
+                  />
+                </label>
+                {images.length > 0 && (
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3 mt-2">
+                    {images.map((file, idx) => (
+                      <div key={idx} className="relative group aspect-square rounded-lg overflow-hidden border border-border">
+                        <img src={URL.createObjectURL(file)} alt={file.name} className="w-full h-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => removeImage(idx)}
+                          className="absolute top-1 right-1 bg-background/80 hover:bg-destructive rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                          aria-label="Quitar imagen"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="md:col-span-2">
                 <button
