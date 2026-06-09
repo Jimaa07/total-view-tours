@@ -1,21 +1,73 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Mail, Phone } from "lucide-react";
+import { Mail, Phone, Upload, X } from "lucide-react";
 import emailjs from "@emailjs/browser";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+
+const MAX_IMAGES = 6;
+const MAX_SIZE = 8 * 1024 * 1024; // 8MB
 
 const Contact = () => {
   const [sending, setSending] = useState(false);
+  const [images, setImages] = useState<File[]>([]);
   const [form, setForm] = useState({
     name: "",
     email: "",
     phone: "",
     project: "",
+    location: "",
     message: "",
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  const handleImages = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    const valid: File[] = [];
+    for (const f of files) {
+      if (!f.type.startsWith("image/")) {
+        toast.error(`${f.name}: solo se permiten imágenes.`);
+        continue;
+      }
+      if (f.size > MAX_SIZE) {
+        toast.error(`${f.name}: supera 8MB.`);
+        continue;
+      }
+      valid.push(f);
+    }
+    const combined = [...images, ...valid].slice(0, MAX_IMAGES);
+    if (images.length + valid.length > MAX_IMAGES) {
+      toast.error(`Máximo ${MAX_IMAGES} imágenes.`);
+    }
+    setImages(combined);
+    e.target.value = "";
+  };
+
+  const removeImage = (idx: number) => {
+    setImages(images.filter((_, i) => i !== idx));
+  };
+
+  const uploadImages = async (): Promise<string[]> => {
+    const urls: string[] = [];
+    const folder = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    for (const file of images) {
+      const ext = file.name.split(".").pop() ?? "jpg";
+      const path = `${folder}/${crypto.randomUUID()}.${ext}`;
+      const { error } = await supabase.storage.from("property-images").upload(path, file, {
+        contentType: file.type,
+        upsert: false,
+      });
+      if (error) throw error;
+      const { data, error: signErr } = await supabase.storage
+        .from("property-images")
+        .createSignedUrl(path, 60 * 60 * 24 * 365);
+      if (signErr) throw signErr;
+      urls.push(data.signedUrl);
+    }
+    return urls;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -26,20 +78,28 @@ const Contact = () => {
     }
     setSending(true);
     try {
+      let imageUrls: string[] = [];
+      if (images.length > 0) {
+        imageUrls = await uploadImages();
+      }
       await emailjs.send(
         "service_gqb5ekj",
-        "template_default",
+        "template_xksifp6",
         {
           from_name: form.name,
           from_email: form.email,
           phone: form.phone,
           project_type: form.project,
+          location: form.location,
           message: form.message,
+          image_links: imageUrls.length > 0 ? imageUrls.join("\n") : "Sin imágenes adjuntas",
+          image_count: imageUrls.length,
         },
         { publicKey: "8_aMSh-2p3q7xA23j" }
       );
       toast.success("¡Solicitud enviada con éxito!");
-      setForm({ name: "", email: "", phone: "", project: "", message: "" });
+      setForm({ name: "", email: "", phone: "", project: "", location: "", message: "" });
+      setImages([]);
     } catch (error) {
       console.error(error);
       toast.error("Error al enviar. Intenta de nuevo.");
