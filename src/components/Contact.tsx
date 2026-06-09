@@ -4,6 +4,7 @@ import { Mail, Phone, Upload, X, MessageCircle } from "lucide-react";
 import emailjs from "@emailjs/browser";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { getWhatsAppUrl } from "@/lib/whatsapp";
 
 const MAX_IMAGES = 6;
 const MAX_SIZE = 8 * 1024 * 1024; // 8MB
