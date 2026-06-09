@@ -266,6 +266,14 @@ const Contact = () => {
               <a href="tel:+50251082954" className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors text-sm">
                 <Phone size={16} className="text-primary" /> +502 51082954
               </a>
+              <a
+                href="https://wa.me/50251082954"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors text-sm"
+              >
+                <MessageCircle size={16} className="text-primary" /> WhatsApp
+              </a>
             </div>
           </motion.div>
         </div>
