@@ -186,6 +186,19 @@ const Contact = () => {
                 </select>
               </div>
               <div className="flex flex-col gap-2 md:col-span-2">
+                <label className="text-sm text-muted-foreground font-medium">
+                  Link de ubicación <span className="text-muted-foreground/60">(Google Maps, opcional)</span>
+                </label>
+                <input
+                  type="url"
+                  name="location"
+                  value={form.location}
+                  onChange={handleChange}
+                  placeholder="https://maps.google.com/..."
+                  className="bg-secondary border border-border rounded-lg px-4 py-3 text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50 transition-colors"
+                />
+              </div>
+              <div className="flex flex-col gap-2 md:col-span-2">
                 <label className="text-sm text-muted-foreground font-medium">Mensaje</label>
                 <textarea
                   name="message"
@@ -195,6 +208,45 @@ const Contact = () => {
                   placeholder="Cuéntanos sobre tu proyecto..."
                   className="bg-secondary border border-border rounded-lg px-4 py-3 text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50 transition-colors resize-none"
                 />
+              </div>
+              <div className="flex flex-col gap-2 md:col-span-2">
+                <label className="text-sm text-muted-foreground font-medium">
+                  Imágenes de la propiedad <span className="text-muted-foreground/60">(opcional, hasta {MAX_IMAGES})</span>
+                </label>
+                <label
+                  htmlFor="property-images"
+                  className="flex flex-col items-center justify-center gap-2 bg-secondary border border-dashed border-border hover:border-primary/50 rounded-lg px-4 py-6 cursor-pointer transition-colors"
+                >
+                  <Upload size={20} className="text-primary" />
+                  <span className="text-sm text-muted-foreground">
+                    Haz clic para subir imágenes (máx. 8MB cada una)
+                  </span>
+                  <input
+                    id="property-images"
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleImages}
+                    className="hidden"
+                  />
+                </label>
+                {images.length > 0 && (
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3 mt-2">
+                    {images.map((file, idx) => (
+                      <div key={idx} className="relative group aspect-square rounded-lg overflow-hidden border border-border">
+                        <img src={URL.createObjectURL(file)} alt={file.name} className="w-full h-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => removeImage(idx)}
+                          className="absolute top-1 right-1 bg-background/80 hover:bg-destructive rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                          aria-label="Quitar imagen"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="md:col-span-2">
                 <button
