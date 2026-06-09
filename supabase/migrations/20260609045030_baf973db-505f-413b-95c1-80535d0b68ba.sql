@@ -1,0 +1,1 @@
+CREATE POLICY "Anyone can upload property images" ON storage.objects FOR INSERT TO anon, authenticated WITH CHECK (bucket_id = 'property-images');
