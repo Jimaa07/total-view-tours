@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Mail, Phone, Upload, X } from "lucide-react";
+import { Mail, Phone, Upload, X, MessageCircle } from "lucide-react";
 import emailjs from "@emailjs/browser";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -165,7 +165,7 @@ const Contact = () => {
                   name="phone"
                   value={form.phone}
                   onChange={handleChange}
-                  placeholder="51082954"
+                  placeholder="+502 51082954"
                   className="bg-secondary border border-border rounded-lg px-4 py-3 text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50 transition-colors"
                 />
               </div>
@@ -263,8 +263,16 @@ const Contact = () => {
               <a href="mailto:totalviewexperiencie@gmail.com" className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors text-sm">
                 <Mail size={16} className="text-primary" /> totalviewexperiencie@gmail.com
               </a>
-              <a href="tel:51082954" className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors text-sm">
-                <Phone size={16} className="text-primary" /> 51082954
+              <a href="tel:+50251082954" className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors text-sm">
+                <Phone size={16} className="text-primary" /> +502 51082954
+              </a>
+              <a
+                href="https://wa.me/50251082954"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors text-sm"
+              >
+                <MessageCircle size={16} className="text-primary" /> WhatsApp
               </a>
             </div>
           </motion.div>
