@@ -4,6 +4,7 @@ import { Mail, Phone, Upload, X, MessageCircle } from "lucide-react";
 import emailjs from "@emailjs/browser";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { getWhatsAppUrl } from "@/lib/whatsapp";
 
 const MAX_IMAGES = 6;
 const MAX_SIZE = 8 * 1024 * 1024; // 8MB
@@ -268,6 +269,10 @@ const Contact = () => {
               </a>
               <a
                 href="https://wa.me/50251082954"
+                onClick={(e) => {
+                  e.preventDefault();
+                  window.open(getWhatsAppUrl(), "_blank", "noopener,noreferrer");
+                }}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors text-sm"
