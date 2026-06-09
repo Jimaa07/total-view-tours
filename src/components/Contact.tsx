@@ -263,8 +263,8 @@ const Contact = () => {
               <a href="mailto:totalviewexperiencie@gmail.com" className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors text-sm">
                 <Mail size={16} className="text-primary" /> totalviewexperiencie@gmail.com
               </a>
-              <a href="tel:51082954" className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors text-sm">
-                <Phone size={16} className="text-primary" /> 51082954
+              <a href="tel:+50251082954" className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors text-sm">
+                <Phone size={16} className="text-primary" /> +502 51082954
               </a>
             </div>
           </motion.div>
