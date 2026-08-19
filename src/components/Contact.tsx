@@ -72,7 +72,7 @@ const Contact = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name || !form.email || !form.message) {
+    if (!form.name || !form.email || !form.location) {
       toast.error("Por favor completa los campos obligatorios.");
       return;
     }
@@ -187,7 +187,7 @@ const Contact = () => {
               </div>
               <div className="flex flex-col gap-2 md:col-span-2">
                 <label className="text-sm text-muted-foreground font-medium">
-                  Link de ubicación <span className="text-muted-foreground/60">(Google Maps, opcional)</span>
+                  Link de ubicación <span className="text-muted-foreground/60">(Google Maps, obligatorio)</span>
                 </label>
                 <input
                   type="url"
@@ -195,11 +195,14 @@ const Contact = () => {
                   value={form.location}
                   onChange={handleChange}
                   placeholder="https://maps.google.com/..."
+                  required
                   className="bg-secondary border border-border rounded-lg px-4 py-3 text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50 transition-colors"
                 />
               </div>
               <div className="flex flex-col gap-2 md:col-span-2">
-                <label className="text-sm text-muted-foreground font-medium">Mensaje</label>
+                <label className="text-sm text-muted-foreground font-medium">
+                  Mensaje <span className="text-muted-foreground/60">(opcional)</span>
+                </label>
                 <textarea
                   name="message"
                   value={form.message}

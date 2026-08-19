@@ -33,7 +33,7 @@ const Hero = () => {
             <span className="text-gradient block mt-2">transforman espacios</span>
           </h1>
           <p className="text-muted-foreground text-lg md:text-xl max-w-2xl mx-auto mb-10 font-light">
-            Creamos recorridos virtuales 360° de alta calidad que permiten a tus clientes explorar cada rincón de tu espacio desde cualquier dispositivo.
+            Tu negocio merece contenido que destaque. Creamos fotografías y videos para redes sociales, combinando tomas dinámicas, audio de calidad y perspectivas creativas en 360° para mostrar lo mejor de tu marca.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
