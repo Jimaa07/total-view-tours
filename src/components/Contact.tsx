@@ -63,8 +63,9 @@ const Contact = () => {
     const files = Array.from(e.target.files ?? []);
     const valid: File[] = [];
     for (const f of files) {
-      if (!f.type.startsWith("image/")) {
-        toast.error(`${f.name}: solo se permiten imágenes.`);
+      const ext = (f.name.split(".").pop() ?? "").toLowerCase();
+      if (!ALLOWED_TYPES.includes(f.type) || !ALLOWED_EXT.includes(ext)) {
+        toast.error(`${f.name}: solo se permiten imágenes (JPG, PNG, WEBP, GIF, HEIC, AVIF).`);
         continue;
       }
       if (f.size > MAX_SIZE) {
@@ -87,9 +88,12 @@ const Contact = () => {
 
   const uploadImages = async (): Promise<string[]> => {
     const urls: string[] = [];
-    const folder = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const folder = `${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
     for (const file of images) {
-      const ext = file.name.split(".").pop() ?? "jpg";
+      const ext = (file.name.split(".").pop() ?? "jpg").toLowerCase();
+      if (!ALLOWED_TYPES.includes(file.type) || !ALLOWED_EXT.includes(ext) || file.size > MAX_SIZE) {
+        throw new Error("Archivo no permitido");
+      }
       const path = `${folder}/${crypto.randomUUID()}.${ext}`;
       const { error } = await supabase.storage.from("property-images").upload(path, file, {
         contentType: file.type,
@@ -107,10 +111,37 @@ const Contact = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name || !form.email || !form.location) {
-      toast.error("Por favor completa los campos obligatorios.");
+
+    // Honeypot: campo invisible que solo los bots rellenan
+    if (honeypot.trim() !== "") {
+      toast.success("¡Solicitud enviada con éxito!");
       return;
     }
+    // Envío demasiado rápido tras cargar el formulario
+    if (Date.now() - mountedAt.current < MIN_FILL_MS) {
+      toast.error("Tómate un momento para completar el formulario.");
+      return;
+    }
+    // Rate limiting simple: un envío por minuto
+    if (Date.now() - lastSentAt.current < COOLDOWN_MS) {
+      toast.error("Ya enviaste una solicitud. Espera un minuto antes de reintentar.");
+      return;
+    }
+
+    const parsed = contactSchema.safeParse({
+      name: clean(form.name),
+      email: clean(form.email),
+      phone: clean(form.phone),
+      project: form.project,
+      location: clean(form.location),
+      message: clean(form.message),
+    });
+    if (!parsed.success) {
+      toast.error(parsed.error.errors[0].message);
+      return;
+    }
+    const data = parsed.data;
+
     setSending(true);
     try {
       let imageUrls: string[] = [];
@@ -121,27 +152,28 @@ const Contact = () => {
         "service_gqb5ekj",
         "template_xksifp6",
         {
-          from_name: form.name,
-          from_email: form.email,
-          phone: form.phone,
-          project_type: form.project,
-          location: form.location,
-          message: form.message,
+          from_name: data.name,
+          from_email: data.email,
+          phone: data.phone || "No proporcionado",
+          project_type: data.project || "No especificado",
+          location: data.location,
+          message: data.message || "Sin mensaje",
           image_links: imageUrls.length > 0 ? imageUrls.join("\n") : "Sin imágenes adjuntas",
           image_count: imageUrls.length,
         },
         { publicKey: "8_aMSh-2p3q7xA23j" }
       );
+      lastSentAt.current = Date.now();
       toast.success("¡Solicitud enviada con éxito!");
       setForm({ name: "", email: "", phone: "", project: "", location: "", message: "" });
       setImages([]);
-    } catch (error) {
-      console.error(error);
+    } catch {
       toast.error("Error al enviar. Intenta de nuevo.");
     } finally {
       setSending(false);
     }
   };
+
 
   return (
     <section id="contacto" className="py-24 md:py-32">
