@@ -202,7 +202,19 @@ const Contact = () => {
             transition={{ duration: 0.6, delay: 0.2 }}
             className="glass rounded-2xl p-8 md:p-12"
           >
-            <form className="grid md:grid-cols-2 gap-6" onSubmit={handleSubmit}>
+            <form className="grid md:grid-cols-2 gap-6" onSubmit={handleSubmit} noValidate>
+              {/* Honeypot anti-bots: invisible para usuarios reales */}
+              <input
+                type="text"
+                name="company_website"
+                value={honeypot}
+                onChange={(e) => setHoneypot(e.target.value)}
+                tabIndex={-1}
+                autoComplete="off"
+                aria-hidden="true"
+                className="hidden"
+              />
+
               <div className="flex flex-col gap-2">
                 <label className="text-sm text-muted-foreground font-medium">Nombre</label>
                 <input
