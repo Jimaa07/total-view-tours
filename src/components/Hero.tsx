@@ -44,7 +44,7 @@ const Hero = () => {
               Solicitar Demo
             </a>
             <a
-              href="#servicios"
+              href="#portafolio"
               className="flex items-center gap-2 border border-border px-8 py-4 rounded-lg text-foreground hover:border-primary/50 transition-colors group"
             >
               <Play size={18} className="text-primary group-hover:scale-110 transition-transform" />
