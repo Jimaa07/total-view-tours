@@ -1,16 +1,48 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Mail, Phone, Upload, X } from "lucide-react";
 import emailjs from "@emailjs/browser";
 import { toast } from "sonner";
+import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 
 const MAX_IMAGES = 6;
 const MAX_SIZE = 8 * 1024 * 1024; // 8MB
+const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif", "image/avif"];
+const ALLOWED_EXT = ["jpg", "jpeg", "png", "webp", "gif", "heic", "heif", "avif"];
+const COOLDOWN_MS = 60_000; // 1 envío por minuto
+const MIN_FILL_MS = 3_000; // los bots envían casi instantáneamente
+
+// Limpia caracteres de control y espacios sobrantes
+const clean = (v: string) => v.replace(/[\u0000-\u001F\u007F]/g, " ").replace(/\s+/g, " ").trim();
+
+const contactSchema = z.object({
+  name: z.string().trim().min(2, "Ingresa tu nombre (mínimo 2 caracteres).").max(100, "El nombre es demasiado largo."),
+  email: z.string().trim().email("Correo electrónico inválido.").max(255, "El correo es demasiado largo."),
+  phone: z
+    .string()
+    .trim()
+    .max(25, "El teléfono es demasiado largo.")
+    .regex(/^[0-9+()\-\s]*$/, "El teléfono solo puede contener números y + ( ) -")
+    .optional()
+    .or(z.literal("")),
+  project: z.enum(["", "realestate", "hospitality", "cultural", "commercial", "other"], {
+    errorMap: () => ({ message: "Selecciona un tipo de proyecto válido." }),
+  }),
+  location: z
+    .string()
+    .trim()
+    .max(500, "El enlace es demasiado largo.")
+    .refine((v) => /^https:\/\/[^\s]+$/i.test(v), "Ingresa un enlace válido que comience con https://"),
+  message: z.string().trim().max(1000, "El mensaje no puede superar 1000 caracteres.").optional().or(z.literal("")),
+});
 
 const Contact = () => {
   const [sending, setSending] = useState(false);
   const [images, setImages] = useState<File[]>([]);
+  const [honeypot, setHoneypot] = useState("");
+  const mountedAt = useRef(Date.now());
+  const lastSentAt = useRef(0);
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -21,8 +53,11 @@ const Contact = () => {
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const limits: Record<string, number> = { name: 100, email: 255, phone: 25, location: 500, message: 1000 };
+    const max = limits[e.target.name] ?? 200;
+    setForm({ ...form, [e.target.name]: e.target.value.slice(0, max) });
   };
+
 
   const handleImages = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
