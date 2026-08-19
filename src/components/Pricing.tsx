@@ -86,9 +86,6 @@ const Pricing = () => {
           <h2 className="font-display text-3xl md:text-5xl font-bold">
             Elige tu <span className="text-gradient">contenido ideal</span>
           </h2>
-          <p className="text-muted-foreground max-w-2xl mx-auto mt-4">
-            Paquetes claros, precios transparentes y contenido profesional listo para impulsar tu negocio o marca.
-          </p>
         </motion.div>
 
         <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-6 items-stretch">
