@@ -1,16 +1,48 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Mail, Phone, Upload, X } from "lucide-react";
 import emailjs from "@emailjs/browser";
 import { toast } from "sonner";
+import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 
 const MAX_IMAGES = 6;
 const MAX_SIZE = 8 * 1024 * 1024; // 8MB
+const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif", "image/avif"];
+const ALLOWED_EXT = ["jpg", "jpeg", "png", "webp", "gif", "heic", "heif", "avif"];
+const COOLDOWN_MS = 60_000; // 1 envío por minuto
+const MIN_FILL_MS = 3_000; // los bots envían casi instantáneamente
+
+// Limpia caracteres de control y espacios sobrantes
+const clean = (v: string) => v.replace(/[\u0000-\u001F\u007F]/g, " ").replace(/\s+/g, " ").trim();
+
+const contactSchema = z.object({
+  name: z.string().trim().min(2, "Ingresa tu nombre (mínimo 2 caracteres).").max(100, "El nombre es demasiado largo."),
+  email: z.string().trim().email("Correo electrónico inválido.").max(255, "El correo es demasiado largo."),
+  phone: z
+    .string()
+    .trim()
+    .max(25, "El teléfono es demasiado largo.")
+    .regex(/^[0-9+()\-\s]*$/, "El teléfono solo puede contener números y + ( ) -")
+    .optional()
+    .or(z.literal("")),
+  project: z.enum(["", "realestate", "hospitality", "cultural", "commercial", "other"], {
+    errorMap: () => ({ message: "Selecciona un tipo de proyecto válido." }),
+  }),
+  location: z
+    .string()
+    .trim()
+    .max(500, "El enlace es demasiado largo.")
+    .refine((v) => /^https:\/\/[^\s]+$/i.test(v), "Ingresa un enlace válido que comience con https://"),
+  message: z.string().trim().max(1000, "El mensaje no puede superar 1000 caracteres.").optional().or(z.literal("")),
+});
 
 const Contact = () => {
   const [sending, setSending] = useState(false);
   const [images, setImages] = useState<File[]>([]);
+  const [honeypot, setHoneypot] = useState("");
+  const mountedAt = useRef(Date.now());
+  const lastSentAt = useRef(0);
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -21,15 +53,19 @@ const Contact = () => {
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const limits: Record<string, number> = { name: 100, email: 255, phone: 25, location: 500, message: 1000 };
+    const max = limits[e.target.name] ?? 200;
+    setForm({ ...form, [e.target.name]: e.target.value.slice(0, max) });
   };
+
 
   const handleImages = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
     const valid: File[] = [];
     for (const f of files) {
-      if (!f.type.startsWith("image/")) {
-        toast.error(`${f.name}: solo se permiten imágenes.`);
+      const ext = (f.name.split(".").pop() ?? "").toLowerCase();
+      if (!ALLOWED_TYPES.includes(f.type) || !ALLOWED_EXT.includes(ext)) {
+        toast.error(`${f.name}: solo se permiten imágenes (JPG, PNG, WEBP, GIF, HEIC, AVIF).`);
         continue;
       }
       if (f.size > MAX_SIZE) {
@@ -52,9 +88,12 @@ const Contact = () => {
 
   const uploadImages = async (): Promise<string[]> => {
     const urls: string[] = [];
-    const folder = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const folder = `${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
     for (const file of images) {
-      const ext = file.name.split(".").pop() ?? "jpg";
+      const ext = (file.name.split(".").pop() ?? "jpg").toLowerCase();
+      if (!ALLOWED_TYPES.includes(file.type) || !ALLOWED_EXT.includes(ext) || file.size > MAX_SIZE) {
+        throw new Error("Archivo no permitido");
+      }
       const path = `${folder}/${crypto.randomUUID()}.${ext}`;
       const { error } = await supabase.storage.from("property-images").upload(path, file, {
         contentType: file.type,
@@ -72,10 +111,37 @@ const Contact = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name || !form.email || !form.location) {
-      toast.error("Por favor completa los campos obligatorios.");
+
+    // Honeypot: campo invisible que solo los bots rellenan
+    if (honeypot.trim() !== "") {
+      toast.success("¡Solicitud enviada con éxito!");
       return;
     }
+    // Envío demasiado rápido tras cargar el formulario
+    if (Date.now() - mountedAt.current < MIN_FILL_MS) {
+      toast.error("Tómate un momento para completar el formulario.");
+      return;
+    }
+    // Rate limiting simple: un envío por minuto
+    if (Date.now() - lastSentAt.current < COOLDOWN_MS) {
+      toast.error("Ya enviaste una solicitud. Espera un minuto antes de reintentar.");
+      return;
+    }
+
+    const parsed = contactSchema.safeParse({
+      name: clean(form.name),
+      email: clean(form.email),
+      phone: clean(form.phone),
+      project: form.project,
+      location: clean(form.location),
+      message: clean(form.message),
+    });
+    if (!parsed.success) {
+      toast.error(parsed.error.errors[0].message);
+      return;
+    }
+    const data = parsed.data;
+
     setSending(true);
     try {
       let imageUrls: string[] = [];
@@ -86,27 +152,28 @@ const Contact = () => {
         "service_gqb5ekj",
         "template_xksifp6",
         {
-          from_name: form.name,
-          from_email: form.email,
-          phone: form.phone,
-          project_type: form.project,
-          location: form.location,
-          message: form.message,
+          from_name: data.name,
+          from_email: data.email,
+          phone: data.phone || "No proporcionado",
+          project_type: data.project || "No especificado",
+          location: data.location,
+          message: data.message || "Sin mensaje",
           image_links: imageUrls.length > 0 ? imageUrls.join("\n") : "Sin imágenes adjuntas",
           image_count: imageUrls.length,
         },
         { publicKey: "8_aMSh-2p3q7xA23j" }
       );
+      lastSentAt.current = Date.now();
       toast.success("¡Solicitud enviada con éxito!");
       setForm({ name: "", email: "", phone: "", project: "", location: "", message: "" });
       setImages([]);
-    } catch (error) {
-      console.error(error);
+    } catch {
       toast.error("Error al enviar. Intenta de nuevo.");
     } finally {
       setSending(false);
     }
   };
+
 
   return (
     <section id="contacto" className="py-24 md:py-32">
@@ -135,7 +202,19 @@ const Contact = () => {
             transition={{ duration: 0.6, delay: 0.2 }}
             className="glass rounded-2xl p-8 md:p-12"
           >
-            <form className="grid md:grid-cols-2 gap-6" onSubmit={handleSubmit}>
+            <form className="grid md:grid-cols-2 gap-6" onSubmit={handleSubmit} noValidate>
+              {/* Honeypot anti-bots: invisible para usuarios reales */}
+              <input
+                type="text"
+                name="company_website"
+                value={honeypot}
+                onChange={(e) => setHoneypot(e.target.value)}
+                tabIndex={-1}
+                autoComplete="off"
+                aria-hidden="true"
+                className="hidden"
+              />
+
               <div className="flex flex-col gap-2">
                 <label className="text-sm text-muted-foreground font-medium">Nombre</label>
                 <input
